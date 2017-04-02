@@ -132,20 +132,29 @@
         (move-actuator (rand-nth (keys move-deltas)))))))
 
 (defn create-state-agent []
-  (let [maze (atom {}) ; map of the world
-        to-visit (atom []) ; frontier still to visit
-        path (atom [])] ; path so far to enable backtracking
+  ; to manage state we have
+  ; maze : is the map of the world we draw as we explore
+  ; to-visit : the frontier of the world, that is the locations to explore
+  ; path : the path so far to enable backtraking
+  (let [maze (atom {})
+        to-visit (atom [])
+        path (atom [])]
     (fn [world]
       (let [{:keys [pos state]} (location-sensor world)
             initialize! (when (empty? @path) (swap! path conj pos))
             last-move (peek @path)]
-        (if (not= last-move pos) ; bumped
+  ; now we update our view of the world either if we bumped or we were able to move
+        (if (not= last-move pos)
+          ; here we bumped
           (do (swap! maze assoc last-move :closed)
               (swap! path pop))
+          ; if no bump we update the map if needed (we could have backtracked)
           (when (not (contains? @maze pos))
             (do (swap! maze assoc pos :open)
                 (apply swap! to-visit conj (remove #(contains? @maze %)
                                                    (neighbors pos))))))
+  ; time to decide next move; if dirty we clean, if all map visited we stop,
+  ; if next to the frontier we explore, otherwise we backtrack
         (let [next-pos (peek @to-visit)]
           (cond (= state :dirty) (clean-actuator)
                 (not next-pos) no-action
