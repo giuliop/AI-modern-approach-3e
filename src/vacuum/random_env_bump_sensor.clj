@@ -1,4 +1,4 @@
-(ns vacuum.random-env)
+(ns vacuum.random-env-bump-sensor)
 
 (defn gen-state []
   (rand-nth [:clean :dirty]))
@@ -110,11 +110,13 @@
       (map println)))
 
 ; agent sensors
-; location-sensor returns a map like {:pos :right, :state :clean}
-(defn location-sensor [world]
-  (let [pos (:agent-pos world)
-        state (get-in world [pos :state])]
-    {:pos pos :state state}))
+; return whether the agent bumped
+(defn bump?-sensor [world pos]
+    (get-in world [pos :open]))
+
+; return whether the agent is on a dirty square
+(defn dirty?-sensor [world]
+  (= :dirty (get-in world [(:agent-pos world) :state])))
 
 ; agent actuators
 (defn clean-actuator []
@@ -127,9 +129,8 @@
 
 (defn create-simple-agent []
   (fn [world]
-    (let [{:keys [pos state]} (location-sensor world)]
-      (if (= state :dirty) (clean-actuator)
-        (move-actuator (rand-nth (keys move-deltas)))))))
+    (if (= :dirty (dirty?-sensor world)) (clean-actuator)
+        (move-actuator (rand-nth (keys move-deltas))))))
 
 (defn create-state-agent []
   ; to manage state we have
@@ -140,11 +141,11 @@
         to-visit (atom [])
         path (atom [])]
     (fn [world]
-      (let [{:keys [pos state]} (location-sensor world)
+      (let [dirty? (dirty?-sensor world)
             initialize! (when (empty? @path) (swap! path conj pos))
             last-move (peek @path)]
   ; now we update our view of the world either if we bumped or we were able to move
-        (if (not= last-move pos)
+        (if (bump?-sensor world last-move)
           ; here we bumped
           (do (swap! maze assoc last-move :closed)
               (swap! path pop))
