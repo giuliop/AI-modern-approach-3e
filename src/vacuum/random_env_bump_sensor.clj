@@ -21,11 +21,18 @@
     (into {:x-size x-size :y-size y-size}
            (apply hash-map (interleave cells states)))))
 
+; to enable bump-sensor we calculate the offset between the agent-pos tracked by the
+; world and the internal one tracked by the agent
+(defn agent-offset [[x y]]
+  [x y])
+
 (defn gen-world
   ([x-size y-size]
-   (let [maze (gen-maze x-size y-size)]
+   (let [maze (gen-maze x-size y-size)
+         agent-pos (gen-agent-pos maze)]
      (into maze
-         {:agent-pos (gen-agent-pos maze)
+         {:agent-pos agent-pos
+          :agent-offset (agent-offset agent-pos)
           :score 0}))))
 
 (defn draw-cell [world cell]
@@ -112,7 +119,8 @@
 ; agent sensors
 ; return whether the agent bumped
 (defn bump?-sensor [world pos]
-    (get-in world [pos :open]))
+  (let [pos (map + pos (:agent-offset world))]
+    (not (get-in world [pos :open]))))
 
 ; return whether the agent is on a dirty square
 (defn dirty?-sensor [world]
@@ -141,26 +149,26 @@
         to-visit (atom [])
         path (atom [])]
     (fn [world]
-      (let [dirty? (dirty?-sensor world)
-            initialize! (when (empty? @path) (swap! path conj pos))
-            last-move (peek @path)]
-  ; now we update our view of the world either if we bumped or we were able to move
-        (if (bump?-sensor world last-move)
-          ; here we bumped
-          (do (swap! maze assoc last-move :closed)
+      ; inizialize if needed
+      (when (empty? @path) (swap! path conj [0 0]))
+      ; update map with walls if we bumped
+      (let [pos (peek @path)]
+        (if (bump?-sensor world pos)
+          (do (swap! maze assoc pos :closed)
               (swap! path pop))
-          ; if no bump we update the map if needed (we could have backtracked)
+          ; if no bump, update the map if needed (we could have backtracked)
           (when (not (contains? @maze pos))
             (do (swap! maze assoc pos :open)
                 (apply swap! to-visit conj (remove #(contains? @maze %)
-                                                   (neighbors pos))))))
-  ; time to decide next move; if dirty we clean, if all map visited we stop,
-  ; if next to the frontier we explore, otherwise we backtrack
-        (let [next-pos (peek @to-visit)]
-          (cond (= state :dirty) (clean-actuator)
-                (not next-pos) no-action
-                (neighbor? next-pos pos) (do (swap! path conj next-pos)
-                                             (swap! to-visit pop)
-                                             (move-actuator (direction pos next-pos)))
-                :else (do (swap! path pop)
-                          (move-actuator (direction pos (peek @path))))))))))
+                                                   (neighbors pos)))))))
+        ; time to decide next move; if dirty we clean, if all map visited we stop,
+        ; if next to the frontier we explore, otherwise we backtrack
+      (let [pos (peek @path)
+            next-pos (peek @to-visit)]
+        (cond (dirty?-sensor world)(clean-actuator)
+              (not next-pos) no-action
+              (neighbor? next-pos pos) (do (swap! path conj next-pos)
+                                           (swap! to-visit pop)
+                                           (move-actuator (direction pos next-pos)))
+              :else (do (swap! path pop)
+                        (move-actuator (direction pos (peek @path)))))))))
