@@ -1,4 +1,4 @@
-(ns ch3.4)
+(ns ch3.8-puzzle)
 
 (defn fact [n]
     (loop [res 1, n n]
@@ -22,12 +22,20 @@
         blank-pos (state blank)]
     (assoc state pos blank, blank pos, blank-pos n)))
 
+(def legal-moves {0 #{1 3}
+                  1 #{0 2 4}
+                  2 #{1 5}
+                  3 #{0 4 6}
+                  4 #{3 5 1 7}
+                  5 #{2 4 8}
+                  6 #{3 7}
+                  7 #{6 4 8}
+                  8 #{5 7}})
+
 ; return new possible states from state
 (defn states-from [state]
-  (let [swaps [1 -1 3 -3]
-        legal? #(<= 0 % 8)
-        blank-pos (state blank)
-        new-blank-pos (filter legal? (map #(+ blank-pos %) swaps))]
+  (let [blank-pos (state blank)
+        new-blank-pos (legal-moves blank-pos)]
     (map (partial swap state) new-blank-pos)))
 
 (defn all-states-from [state]
@@ -74,3 +82,40 @@
         state (assoc state blank (first (filter #(= blank (state %)) (keys state))))]
     (if (goal-achievable? state goal) state
       (recur goal))))
+
+; solution is a map of states as keys with move number as values
+(defn depth-limited [initial-state depth-limit]
+  (letfn [(iter [state limit step solution]
+            (cond (= goal-state state) solution
+                  (zero? limit) 'cutoff
+                  :else
+                  (let [new-states (remove #(contains? solution %) (states-from state))
+                        results (map #(iter % (dec limit) (inc step)
+                                            (assoc solution % (inc step))) new-states)
+                        reduce-results (fn [r1 r2] (cond (= () r2) r1
+                                                         (= () r1) r2
+                                                         (= 'cutoff r1) r2
+                                                         :else r1))]
+                    (reduce reduce-results () results))))]
+    (iter initial-state depth-limit 0 {initial-state 0})))
+
+(defn iterative-deepening [initial-state]
+  (loop [depth 0]
+    (println depth)
+    (let [result (depth-limited initial-state depth)]
+      (if (not= result 'cutoff) result
+        (recur (inc depth))))))
+
+
+(defn print-board [state]
+  (let [board (for [x (range 9)] (state x))]
+    (doseq [row (partition 3 board)]
+      (println row)))
+    (newline))
+
+(defn print-solution [sol]
+  (let [steps (count sol)
+        sol-by-step (reduce #(assoc %1 (sol %2) %2) {} (keys sol))
+        steps (for [x (range steps)] (sol-by-step x))]
+    (doseq [x steps] (print-board x))))
+
