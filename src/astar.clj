@@ -42,13 +42,13 @@
       [score new-square cost-to-square path])))
 
 (defn get-score [entry]
-    (first entry))
+  (first entry))
 
 (defn get-square [entry]
-    (second entry))
+  (second entry))
 
 (defn get-path [entry]
-    (last entry))
+  (last entry))
 
 (defn not-in- [entries]
   (complement (fn [entry] (contains? entries entry))))
@@ -59,20 +59,43 @@
 (defn update-open
   "Return updated open entries adding new items and changing old
   items if a better score is found"
-  [entries e]
-  (let [old-e (get entries e)]
-    (when (or (nil? old-e) (better-path? e old-e))
-      (conj entries e))))
+  [open entry]
+  (let [current-entry (open :get entry)]
+    (if (or (nil? current-entry) (better-path? entry current-entry))
+      (open :conj entry)
+      open)))
 
 (defn format-result
   "Return the best path"
   [entry iterations]
   {:score (get-score entry) :path (get-path entry) :iterations iterations})
 
+; let's define a priority map data structure to use for the open set
+; operations we need to support: conj an entry, get an entry (independently of the
+; score), peek the lowest score entry, disj an entry the priority map has two
+; underlining data structures:
+; 1. a sorted-set of the entries by the score
+; 2. a hash-map with the entries as keys and their scores as values
+; entries are vectors: [square cost-to-square path-to-sqaure score]
+; but in the hash-map they lose the last item, that is the score
+(defn priority-queue
+  ([] (priority-queue (sorted-set) (hash-map)))
+  ([queue items]
+   (fn [& params]
+     (let [[op entry] params
+           item (pop entry)]
+       (case op
+         :conj (priority-queue (conj queue entry)
+                             (assoc items item (get-score entry)))
+         :get (when-let [score (items item)] (apply conj [score] item))
+         :peek (when-not (empty? queue) (first queue))
+         :disj (priority-queue (disj queue entry)
+                               (dissoc items item)))))))
+
 (defn astar [start goal world estimate-f]
   (let [cost-f (fn [square] (estimate-f square goal))]
     (loop [entry [(cost-f start) start (cost world start) [start]]
-           open (sorted-set)
+           open (priority-queue)
            closed (hash-set)
            iterations 1]
       (cond (nil? entry) "No path found"
@@ -82,9 +105,9 @@
                                 (filter (not-in- closed))
                                 (map (continue-path entry cost-f world))
                                 (reduce update-open open))
-                  new-entry (first new-open)]
+                  new-entry (new-open :peek)]
               (recur new-entry
-                     (disj new-open new-entry)
+                     (new-open :disj new-entry)
                      (conj closed (get-square entry))
                      (inc iterations)))))))
 
@@ -147,13 +170,20 @@
         e3 [1002 [1 3] 1001 [[0 0] [0 1] [0 2]]]
         entries (sorted-set e1 e2)
         f (not-in- entries)]
-  (is (= true (f e3)))
-  (is (= false (f e2)))))
+    (is (= true (f e3)))
+    (is (= false (f e2)))))
 
 (deftest better-path?-test
   (let [e1 [1002 [0 2] 1001 [[0 0] [0 1] [0 2]]]
         e2 [1005 [0 3] 1001 [[0 0] [0 1] [0 2]]]]
-  (is (= true (better-path? e2 e1)))))
+    (is (= true (better-path? e2 e1)))))
+
+(deftest update-open-test
+  (let [e1 [1002 [0 2] 1001 [[0 0] [0 1] [0 2]]]
+        open ((priority-queue) :conj e1)
+        e2 [999 [0 2] 1001 [[0 0] [0 1] [0 2]]]
+        open (update-open open e2)]
+    (is (= e2 (open :peek)))))
 
 (deftest astar-test
   (let [f (fn [world] (astar [0 0] (vec (map dec (world-size world))) world distance))]

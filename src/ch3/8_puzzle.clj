@@ -106,6 +106,9 @@
       (if (not= result 'cutoff) result
         (recur (inc depth))))))
 
+(defn astar [initial-state]
+  (loop [explored #{}
+         frontier
 
 (defn print-board [state]
   (let [board (for [x (range 9)] (state x))]
