@@ -53,15 +53,12 @@
 (defn not-in- [entries]
   (complement (fn [entry] (contains? entries entry))))
 
-(defn better-path? [e1 e2]
-  (> (get-score e1) (get-score e2)))
-
 (defn update-open
   "Return updated open entries adding new items and changing old
   items if a better score is found"
   [open entry]
-  (let [current-entry (open :get entry)]
-    (if (or (nil? current-entry) (better-path? entry current-entry))
+  (let [[score item] (open :get entry)]
+    (if (or (nil? score) (< (get-score entry) score))
       (open :conj entry)
       open)))
 
@@ -70,24 +67,24 @@
   [entry iterations]
   {:score (get-score entry) :path (get-path entry) :iterations iterations})
 
-; let's define a priority map data structure to use for the open set
+; let's define a priority queue data structure to use for the open set
 ; operations we need to support: conj an entry, get an entry (independently of the
-; score), peek the lowest score entry, disj an entry the priority map has two
-; underlining data structures:
+; score), peek the lowest score entry, disj an entry
+; the priority queue has two underlining data structures:
 ; 1. a sorted-set of the entries by the score
-; 2. a hash-map with the entries as keys and their scores as values
-; entries are vectors: [square cost-to-square path-to-sqaure score]
-; but in the hash-map they lose the last item, that is the score
+; 2. a hash-map with part of the entries as keys and their scores as values
+;    entries are vectors: [score square cost-to-square path-to-sqaure]
+;    but in the hash-map the keys are just the square
 (defn priority-queue
   ([] (priority-queue (sorted-set) (hash-map)))
   ([queue items]
    (fn [& params]
      (let [[op entry] params
-           item (pop entry)]
+           item (get-square entry)]
        (case op
          :conj (priority-queue (conj queue entry)
                              (assoc items item (get-score entry)))
-         :get (when-let [score (items item)] (apply conj [score] item))
+         :get (when-let [score (items item)] [score item])
          :peek (when-not (empty? queue) (first queue))
          :disj (priority-queue (disj queue entry)
                                (dissoc items item)))))))
