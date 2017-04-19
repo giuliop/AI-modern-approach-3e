@@ -106,9 +106,40 @@
       (if (not= result 'cutoff) result
         (recur (inc depth))))))
 
+; let's define a priority queue data structure to use for the frontier
+; operations we need to support: conj an entry [cost state], get an entry
+; (independently of the cost), peek the lowest cost entry, disj an entry
+; the priority queue has two underlining data structures:
+; 1. a sorted-map of the entries as keys (as [cost state] vetors)
+;    with their parent state as value to rebuild the path later
+; 2. a hash-map with the states as keys and their cost as values
+(defn priority-queue
+  ([] (priority-queue (sorted-map) (hash-map)))
+  ([queue states]
+   (fn [& params]
+     (let [[op [cost state :as entry]] params]
+       (case op
+         :conj (priority-queue (conj queue entry)
+                               (assoc states state cost))
+         :get (when-let [cost (states state)] (apply conj [cost] state))
+         :peek (when-not (empty? queue) (first queue))
+         :disj (priority-queue (disj queue entry)
+                               (dissoc states state)))))))
+
+(declare build-solution)
+(declare update-frontier)
+(declare make-entry)
 (defn astar [initial-state]
   (loop [explored #{}
-         frontier
+         frontier ((priority-queue) :conj [0 initial-state])]
+    (when-let [[score state :as entry] (frontier :peek)]
+      (if (= goal-state state) (build-solution state explored)
+        (let [new-explored (conj explored state)
+              new-frontier (->> (states-from state)
+                                (remove #(contains? new-explored %))
+                                (map make-entry)
+                                (reduce #(update-frontier frontier %)))]
+          (recur new-explored new-frontier))))))
 
 (defn print-board [state]
   (let [board (for [x (range 9)] (state x))]
