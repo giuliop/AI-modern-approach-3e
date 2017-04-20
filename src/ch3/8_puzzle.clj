@@ -128,16 +128,35 @@
 
 (declare build-solution)
 (declare update-frontier)
-(declare make-entry)
+
+(defn x [tile]
+  (mod tile 3))
+(defn y [tile]
+  (quot tile 3))
+
+(defn manhattan [tile state]
+  (let [k (dec (state tile))
+        xd (Math/abs (- (x tile) (x k)))
+        yd (Math/abs (- (y tile) (y k)))]
+    (+ xd yd)))
+
+; heuristic for cost to goal based on manhattan distance
+(defn estimate-cost [state]
+ (apply + (map #(manhattan % state) (non-blank-pos state))))
+
+(defn make-entry [state parent-cost]
+  (let [cost (+ (inc parent-cost) (estimate-cost state))]
+    [cost state]))
+
 (defn astar [initial-state]
   (loop [explored #{}
          frontier ((priority-queue) :conj [0 initial-state])]
-    (when-let [[score state :as entry] (frontier :peek)]
+    (when-let [[cost state :as entry] (frontier :peek)]
       (if (= goal-state state) (build-solution state explored)
         (let [new-explored (conj explored state)
               new-frontier (->> (states-from state)
                                 (remove #(contains? new-explored %))
-                                (map make-entry)
+                                (map #(make-entry % cost))
                                 (reduce #(update-frontier frontier %)))]
           (recur new-explored new-frontier))))))
 
