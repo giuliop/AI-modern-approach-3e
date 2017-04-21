@@ -66,9 +66,8 @@
   (keys (dissoc state (state blank) blank)))
 
 (defn inversions [state pos]
-  (let [inverted? #(and (> % pos) (< (state %) (state pos)))
-        inverted-keys (filter inverted? (non-blank-pos state))]
-    (apply + (for [x inverted-keys] (state x)))))
+  (let [inverted? #(and (> % pos) (< (state %) (state pos)))]
+        (count (filter inverted? (non-blank-pos state)))))
 
 (defn total-inversions [state]
   (apply + (map (partial inversions state) (non-blank-pos state))))
@@ -76,15 +75,21 @@
 (defn goal-achievable? [state goal]
   (= (mod (total-inversions state) 2) (mod (total-inversions goal) 2)))
 
-(defn gen-random-state [goal]
+(defn gen-random-state
+  ([goal]
   (let [perm (shuffle [1 2 3 4 5 6 7 8 blank])
         state (apply hash-map (interleave [0 1 2 3 4 5 6 7 8] perm))
         state (assoc state blank (first (filter #(= blank (state %)) (keys state))))]
     (if (goal-achievable? state goal) state
       (recur goal))))
+  ([goal moves-no]
+   (loop [state goal, states #{}, steps moves-no]
+     (if (zero? steps) state
+       (let [move (rand-nth (remove #(contains? states %) (states-from state)))]
+         (recur move (conj states state) (dec steps)))))))
 
 ; solution is a map of states as keys with move number as values
-(defn depth-limited [initial-state depth-limit]
+(defn depth-limited [start-state depth-limit]
   (letfn [(iter [state limit step solution]
             (cond (= goal-state state) solution
                   (zero? limit) 'cutoff
@@ -97,37 +102,63 @@
                                                          (= 'cutoff r1) r2
                                                          :else r1))]
                     (reduce reduce-results () results))))]
-    (iter initial-state depth-limit 0 {initial-state 0})))
+    (iter start-state depth-limit 0 {start-state 0})))
 
-(defn iterative-deepening [initial-state]
+(defn iterative-deepening [start-state]
   (loop [depth 0]
-    (println depth)
-    (let [result (depth-limited initial-state depth)]
+    ;(println depth)
+    (let [result (depth-limited start-state depth)]
       (if (not= result 'cutoff) result
         (recur (inc depth))))))
 
 ; let's define a priority queue data structure to use for the frontier
-; operations we need to support: conj an entry [cost state], get an entry
-; (independently of the cost), peek the lowest cost entry, disj an entry
+; operations we need to support: conj an entry [cost state cost-to], get an entry for
+; a state(whatever the cost or cost-to), peek the lowest cost entry, disj an entry,
+; empty? to check for emptiness
 ; the priority queue has two underlining data structures:
-; 1. a sorted-map of the entries as keys (as [cost state] vetors)
-;    with their parent state as value to rebuild the path later
-; 2. a hash-map with the states as keys and their cost as values
+; 1. A queue sorted by lowest cost first implemented as a sorted-map of the entries
+;    as keys ([cost state cost-to]) with their parent state as value to build the
+;    sequnce of moves later
+; 2. a hash-map with the states as keys and their [cost cost-to] as values to
+;    quickly check for inclusion and associated cost
+(defn pq-comp [x y]
+  (let [x1 (first x) y1 (first y)
+        x2 (second x) y2 (second y)]
+    (cond (< y1 x1) 1
+          (< x1 y1) -1
+          (= x2 y2) 0
+          :else -1)))
+
 (defn priority-queue
-  ([] (priority-queue (sorted-map) (hash-map)))
+  ([] (priority-queue (sorted-map-by pq-comp) (hash-map)))
   ([queue states]
    (fn [& params]
-     (let [[op [cost state :as entry]] params]
+     (let [[op [[cost state cost-to :as entry] parent]] params]
        (case op
-         :conj (priority-queue (conj queue entry)
-                               (assoc states state cost))
-         :get (when-let [cost (states state)] (apply conj [cost] state))
+         :conj (priority-queue (assoc queue entry parent)
+                               (assoc states state [cost cost-to]))
+         :get (when-let [[cost cost-to] (states state)] [cost state cost-to])
          :peek (when-not (empty? queue) (first queue))
-         :disj (priority-queue (disj queue entry)
-                               (dissoc states state)))))))
+         :disj (if (nil? entry) (priority-queue queue states)
+                 (priority-queue (dissoc queue entry)
+                                 (dissoc states state)))
+         :empty? (empty? queue)
+         :println (do (doseq [x (keys queue)] (println x)) (newline)))))))
 
-(declare build-solution)
-(declare update-frontier)
+; a solution is a list of states starting from start state to goal state
+(defn build-solution [state explored]
+  (letfn [(iter [sol state]
+            (let [parent (explored state)
+                  sol (conj sol state)]
+              (if (nil? parent) sol
+                (iter sol parent))))]
+    (iter () state)))
+
+(defn update-frontier [frontier [entry parent :as e]]
+  (let [current (frontier :get e)]
+    (if (or (nil? current) (> (first current) (first entry)))
+      ((frontier :disj [current nil]) :conj e)
+      frontier)))
 
 (defn x [tile]
   (mod tile 3))
@@ -141,34 +172,40 @@
     (+ xd yd)))
 
 ; heuristic for cost to goal based on manhattan distance
-(defn estimate-cost [state]
- (apply + (map #(manhattan % state) (non-blank-pos state))))
+(defn estimate-cost [state cost-to]
+ (+ cost-to (reduce #(+ %1 (manhattan %2 state)) 0 (non-blank-pos state))))
 
-(defn make-entry [state parent-cost]
-  (let [cost (+ (inc parent-cost) (estimate-cost state))]
-    [cost state]))
+(defn make-entry [state parent parent-cost-to]
+  (let [cost-to (inc parent-cost-to)
+        cost (estimate-cost state cost-to)]
+    [[cost state cost-to] parent]))
 
-(defn astar [initial-state]
-  (loop [explored #{}
-         frontier ((priority-queue) :conj [0 initial-state])]
-    (when-let [[cost state :as entry] (frontier :peek)]
-      (if (= goal-state state) (build-solution state explored)
-        (let [new-explored (conj explored state)
-              new-frontier (->> (states-from state)
-                                (remove #(contains? new-explored %))
-                                (map #(make-entry % cost))
-                                (reduce #(update-frontier frontier %)))]
-          (recur new-explored new-frontier))))))
+(defn astar [start-state]
+  (loop [explored {} ;state as key with parent as value
+         frontier ((priority-queue) :conj (make-entry start-state nil 0))]
+    (when-not (frontier :empty?)
+      (let [[[cost state cost-to] parent :as entry] (frontier :peek)
+            explored (assoc explored state parent)]
+        (if (= goal-state state) (build-solution state explored)
+          (let [frontier (->> (states-from state)
+                              (remove #(contains? explored %))
+                              (map #(make-entry % state cost-to))
+                              (reduce #(update-frontier %1 %2) frontier))]
+            (recur explored (frontier :disj entry))))))))
 
 (defn print-board [state]
   (let [board (for [x (range 9)] (state x))]
     (doseq [row (partition 3 board)]
       (println row)))
-    (newline))
+  (newline))
 
 (defn print-solution [sol]
-  (let [steps (count sol)
-        sol-by-step (reduce #(assoc %1 (sol %2) %2) {} (keys sol))
-        steps (for [x (range steps)] (sol-by-step x))]
-    (doseq [x steps] (print-board x))))
+  (if-not sol (println "failure")
+    (let [step-no (count sol)]
+      (cond (map? sol) (let [sol-by-step (reduce #(assoc %1 (sol %2) %2) {} (keys sol))
+                             steps (for [x (range step-no)] (sol-by-step x))]
+                         (doseq [x steps] (print-board x)))
+            (list? sol) (doseq [x sol] (print-board x)))
+      (println "Moves:" (dec step-no)))))
+
 
