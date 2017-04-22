@@ -1,0 +1,33 @@
+*** ex 3.6 ***
+
+a. States: a map of multiple regions defined by which regions they are adjacent to and
+           what color they are
+   Initial state: all regions uncolored
+   Actions: color one region of one of four colors
+   Transtion: changing the color of one region
+   Goal test: all regions colored in one of four colors so that no adjancent regions
+               have the same color
+   Path cost: number of actions
+
+b. States: location of monkey, bananas, crates
+   Initial state: random bananas, monkey in a corner, crates stack in another corner
+   Actions: push crate to a location, stack a crate, unstack a crate, climb crate(s),
+            get a banana, descend from crate(s), move to location
+   Transition: as expected
+   Goal test: all banana gotten
+   Path cost: number of actions
+
+c. States: one or more records fed, machine answer (legal or illegal)
+   Initial state: all record fed, illegal answer
+   Actions: fed certain record(s) to the machine
+   Transition: machine answer
+   Goal test: one record def, illegal answer
+   Path cost: number of actions
+
+d. States: jugs with varying amount of water inside each
+   Initial state: all jugs empty
+   Actions: fill a jug of water, empty a jug, pour a jug into another
+   Transition: water flows to/from a jug
+   Goal test: one jug has one gallon of water inside
+   Path cost: number of actions
+
