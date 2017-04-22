@@ -31,3 +31,31 @@ d. States: jugs with varying amount of water inside each
    Goal test: one jug has one gallon of water inside
    Path cost: number of actions
 
+*** ex 3.7 ***
+a. infinite
+b. let (v1, v2) be the starting vertex and the goal vertex. If no obstacles are
+   present the shortest path is the segment between v1,v2. If there is an obstacle to
+   circumnavigate it we must touch one of its vertex, let it be v3, so the first
+   segment is v1,v3 and now we must reach v2 from v3 and so on.
+   Problem definition: a set of vertexes, some "adjacent" to others with a certain
+   distance, with a start vertex and a goal vertex.
+   Actions are moving between adjacent vertexes.
+   The state space is the set of vertexes, 35 in total
+
+*** ex 3.8 ***
+a. the last state to be explored could have a large enough negative cost to make it
+   optimal
+
+*** ex 3.8 ***
+a. the last state to be explored could have a large enough negative cost to make it
+   optimal
+b. no help in tree search as there could be an arbitrary number of nodes to visit
+   with negative cost c. In graph search we could track the total number of states
+   still to be explored and stop when even if all of them had c cost it would not
+   improve the current solution
+c. the agent would be stuck in an infinite loop to minimize the cost function
+d. humans have time constraints that make the passing of time carry ever increasing
+   cost per unit of time after certain thresholds. Similarly the agent cost function
+   could also take the time (or no. of action) elapsed as an input and increase
+   over time
+e. people driving for money can be incentivized to go through loops, e.g. a bus driver
