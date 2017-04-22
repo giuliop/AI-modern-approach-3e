@@ -1,9 +1,7 @@
 (ns ch3.8-puzzle)
 
 (defn fact [n]
-    (loop [res 1, n n]
-      (if (zero? n) res
-        (recur (* res n) (dec n)))))
+  (reduce * (range 1 (inc n))))
 
 (def all-states-count
   (fact 9))
