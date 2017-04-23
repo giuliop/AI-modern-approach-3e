@@ -34,6 +34,9 @@
 (defn make-entry [path s]
   (conj path s))
 
+; note that we don't test for goal when we generate the nodes but only when we
+; select them; it works here but it's less efficient for breadth-first searches in
+; large state spaces
 (defn breadth-first []
   (loop [parent nil
          frontier (conj clojure.lang.PersistentQueue/EMPTY [start-state])]
