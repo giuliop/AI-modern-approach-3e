@@ -59,3 +59,62 @@ d. humans have time constraints that make the passing of time carry ever increas
    could also take the time (or no. of action) elapsed as an input and increase
    over time
 e. people driving for money can be incentivized to go through loops, e.g. a bus driver
+
+*** ex 3.10 ***
+state: an (abstracted) snapshot of the world
+state space: the set of all world states
+search tree: the tree that starts from the internal representations of the initial
+             state and branches out with the representations of the stats resulting
+             from the possible actions
+search node: the representation of a state inside the search tree
+goal       : the desired end state
+action     : a possible transition from a state to another
+transition model: a function of state , action returning the new state resulting from
+                  applying the action to the input state
+branching factor: the number of possible actions in a state, that is the child nodes
+                  of a search node in the search tree
+
+*** ex 3.13 ***
+At the start, before the first iterarion, the frontier is initialized with the initial
+state, the explored region is empty and thus the property hold, any path will start
+from the initial state and thus from the frontier.
+Let's then assume that the property holds before an iteration n of the loop, that is
+any unexplored state can only be reached by a state in the frontier.
+In the loop a node is removed from the frontier and all its still unexplored children
+added. Thus any other unexplored node that could be reached from the removed node can
+now be reached through one of its children added to the frontier so the property still
+holds. The children not added to the frontier because already in the explored set do
+not matter since no other unexplored state could have been reached by that node
+without passing by the frontier without violating the property that we assumed held
+at the start of the iteration. By induction then the property always holds.
+
+*** ex 3.14 ***
+a. False; DFS could expand immediately the solution path without expanding the entire
+   frontier at each step as A*
+b. True
+c. False, the state representation of the agent is anyway discrete
+d. True, as long as the branching factor is finite
+e. False, since the rook is not bound to move a square per move
+
+*** ex 3.15 ***
+b. BFS: 1 2 3 4 5 6 7 8 9 10 11
+   DLS-3: 1 2 4 8 9 5 10 11
+   IDS: 1 ; 1 2 3 ; 1 2 4 5 3 6 7 ; 1 2 4 8 9 5 10 11
+c. very well since there is a single path from goal to start, that is branching
+   factor of 1 vs. branching factor of 2 from start to goal
+d. yes, if k is the goal (node n) then node n-1 is the quotient of k/2, until we
+   reach 1, the start node
+e. Let k be the number to reach and b its binary representation. The solution path is
+   to ignore the first digit and assign a Left to a zero and a Right to a one after
+   that. So for 11 (decimal) which is 1011 in binary the solution is Left Right Right
+
+*** ex 3.16 ***
+a. States: the set of connections among the different pieces
+   Initial state: no connections among pieces
+   Actions: connect two pieces (specifying the connectors for the splits), disconnect
+            two pieces
+   Transition: the new set of connections
+   Goal test: all pieces connected with no unconnected connector and no overlap
+   Path cost: number of actions
+b. Depth-first since solutions have max depth
+c. number of pegs and hole would not match anymore
