@@ -180,7 +180,7 @@
 
 (defn astar [start-state]
   (loop [explored {} ;state as key with parent as value
-         frontier ((priority-queue) :conj (make-entry start-state nil 0))]
+         frontier ((priority-queue) :conj (make-entry start-state nil -1))]
     (when-not (frontier :empty?)
       (let [[[cost state cost-to] parent :as entry] (frontier :peek)
             explored (assoc explored state parent)]
@@ -190,6 +190,57 @@
                               (map #(make-entry % state cost-to))
                               (reduce #(update-frontier %1 %2) frontier))]
             (recur explored (frontier :disj entry))))))))
+
+(defn make-uniform-cost-entry [state parent parent-cost-to]
+  (let [cost-to (inc parent-cost-to)
+        cost cost-to]
+    [[cost state cost-to] parent]))
+
+(defn uniform-cost [start-state]
+  (loop [explored {} ;state as key with parent as value
+         frontier ((priority-queue) :conj (make-uniform-cost-entry start-state nil -1))]
+    (when-not (frontier :empty?)
+      (let [[[cost state cost-to] parent :as entry] (frontier :peek)
+            explored (assoc explored state parent)]
+        (if (= goal-state state) (build-solution state explored)
+          (let [frontier (->> (states-from state)
+                              (remove #(contains? explored %))
+                              (map #(make-uniform-cost-entry % state cost-to))
+                              (reduce #(update-frontier %1 %2) frontier))]
+            (recur explored (frontier :disj entry))))))))
+
+(defn cost-ok? [entry max-cost]
+  (let [[[cost state cost-to] parent] entry]
+    (<= cost max-cost)))
+
+(defn get-cost [entry]
+  (let [[[cost state cost-to] parent] entry]
+    cost))
+
+(defn new-max-cost [current entries]
+  (let [costs (remove nil? (conj (map get-cost entries) current))]
+    (if (empty? costs) nil
+      (apply min costs))))
+
+(defn iterative-lengthening
+  ([start-state] (iterative-lengthening start-state 0))
+  ([start-state max-cost]
+   (loop [explored {} ;state as key with parent as value
+          frontier ((priority-queue) :conj (make-uniform-cost-entry start-state nil -1))
+          next-max-cost nil]
+     (when-not (frontier :empty?)
+       (let [[[cost state cost-to] parent :as entry] (frontier :peek)
+             explored (assoc explored state parent)]
+         (cond (= goal-state state) (build-solution state explored)
+               (> cost max-cost) (iterative-lengthening start-state next-max-cost)
+               :else (let [entries (->> (states-from state)
+                                        (remove #(contains? explored %))
+                                        (map #(make-uniform-cost-entry % state cost-to)))
+                           next-max-cost (new-max-cost next-max-cost
+                                                       (remove #(cost-ok? % max-cost)
+                                                               entries))
+                           frontier (reduce #(update-frontier %1 %2) frontier entries)]
+                       (recur explored (frontier :disj entry) next-max-cost))))))))
 
 (defn print-board [state]
   (let [board (for [x (range 9)] (state x))]
@@ -206,4 +257,9 @@
             (list? sol) (doseq [x sol] (print-board x)))
       (println "Moves:" (dec step-no)))))
 
-
+(defn compare-iterative-lengthening []
+  (let [runs (take 5 (repeat (gen-random-state goal-state 22)))]
+    (print "Iterative lenghtening - ")
+    (time (apply + (map count (map iterative-lengthening runs))))
+    (print "Uniform-cost - ")
+    (time (apply + (map count (map uniform-cost runs))))))
