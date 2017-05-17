@@ -118,3 +118,18 @@ a. States: the set of connections among the different pieces
    Path cost: number of actions
 b. Depth-first since solutions have max depth
 c. number of pegs and hole would not match anymore
+d. There are 32 pieces, of which 16 can be flipped one way, 2 2-ways and 2 4-ways
+   (considering only the pegs, not the holes), so there are:
+   12 + 16*2 + 2*2 + 2*4 = 56 possible piece positioning. 2 pieces have 2 pegs, the
+   others only 1, so the maximum number of open "connections" where to put a new
+   piece are 3 (2 open connections if no 3-way piece is connected plus 1 additional
+   connection for each of the two 3-way piece once they are connected.
+   So an upper bound of the serie looks like:
+   (56*3)^32 = 168^32.
+
+*** ex 3.17 ***
+a. The algorithm is a variation of uniform-cost search and is optimal since it
+   always expand the lowest cost node until the goal is found.
+b. b*d
+c. ?
+d. In the 8-puzzle iterative lenghtening takes about 3x more than uniform search
