@@ -133,3 +133,6 @@ a. The algorithm is a variation of uniform-cost search and is optimal since it
 b. b*d
 c. ?
 d. In the 8-puzzle iterative lenghtening takes about 3x more than uniform search
+
+*** ex 3.18 ***
+A search tree with breath 1 and depth n
